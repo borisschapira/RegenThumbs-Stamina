@@ -47,6 +47,7 @@ Visit Tools -> RegenThumbs Stamina to get started.
 
 #ChangeLog
 
+* 0.7 : A new button makes the application stop once started
 * 0.6 : When the process is finished, proposes to relaunch on errors
 * 0.5 : Actualize jQuery UI JS and CSS for a better look :)
 * 0.4 : Custom column in Wordpress Media Library for "one-click" (actualy, two clicks) regeneration

@@ -3,7 +3,7 @@
 Plugin Name:  RegenThumbs Stamina
 Plugin URI:   
 Description:  Allows you to regenerate all thumbnails after changing the thumbnail sizes.
-Version:      0.6
+Version:      0.7
 Author:       Boris Schapira
 Author URI:   http://www.borisschapira.com
 **************************************************************************
@@ -87,7 +87,8 @@ class RegenerateThumbnails {
 	<div id="regenthumbsbar" style="position:relative;height:25px;">
 		<div id="regenthumbsbar-percent" style="position:absolute;left:20%;top:50%;width:500px;margin-left:-25px;height:25px;margin-top:-9px;font-weight:bold;text-align:center;"></div>
 	</div>
-		<h3><?php _e( 'Informations', 'regenthumbs-stamina' )?></h3>
+	<p><input type="button" class="button hide-if-no-js" name="regenthumbs-stamina-stop" id="regenthumbs-stamina-stop" value="<?php _e( 'Stop the regeneration', 'regenthumbs-stamina' ) ?>" /></p>
+	<h3><?php _e( 'Informations', 'regenthumbs-stamina' )?></h3>
 	<p><?php _e( 'Number of images to resize : ', 'regenthumbs-stamina' )?><span id="imagecount"></span></p>
 	<p><?php _e( 'Success rate : ', 'regenthumbs-stamina' )?><span id="successratevalue"></span> %</p>
 	</div>
@@ -107,23 +108,29 @@ class RegenerateThumbnails {
 			var rt_success = 0;
 			var rt_errors = 0;
 			var rt_percent = 0;
+			var rt_continue = true;
 			$("#regenthumbsbar").progressbar();
 			$("#regenthumbsbar-percent").html( "0%" );
 			$("#imagecount").html(rt_total);
 			$("#successratevalue").html("100");
 			
+			$('#regenthumbs-stamina-stop').click(function() {
+				rt_continue = false;				
+				$('#regenthumbs-stamina-stop').val('<?php echo esc_js( __( 'Stopping...', 'regenthumbs-stamina' ))?>');
+			});
+			
 			// Updates log info
 			function UpdateRegenInfos(id, success) {
-				var SUCCESSTEXT = "<?php _e( 'Success !', 'regenthumbs-stamina' )?>";
-				var ERRORTEXT = "<?php _e( 'Error :(', 'regenthumbs-stamina' )?>";
+				var SUCCESSTEXT = "<?php echo esc_js( __( 'Success !', 'regenthumbs-stamina' ))?>";
+				var ERRORTEXT = "<?php echo esc_js( __(  'Error :(', 'regenthumbs-stamina' ))?>";
 				
 				if(success){
 					rt_success = rt_success + 1;
-					$("#log_regenthumb").append('<li><?php _e( 'Id : ', 'regenthumbs-stamina' )?><a title="<?php _e( 'Edit the media', 'regenthumbs-stamina' )?>" target="_blank" class="regenthumbs-success-id" href="media.php?action=edit&attachment_id=' + id + '">' + id + '</a>... ' + SUCCESSTEXT + '</li>');
+					$("#log_regenthumb").append('<li><?php echo esc_js( __( 'Id : ', 'regenthumbs-stamina' ))?><a title="<?php echo esc_js( __( 'Edit the media', 'regenthumbs-stamina' ))?>" target="_blank" class="regenthumbs-success-id" href="media.php?action=edit&attachment_id=' + id + '">' + id + '</a>... ' + SUCCESSTEXT + '</li>');
 				}
 				else{
 					rt_errors = rt_errors + 1;
-					$("#log_regenthumb").append('<li><?php _e( 'Id : ', 'regenthumbs-stamina' )?><a title="<?php _e( 'Edit the media', 'regenthumbs-stamina' )?>" target="_blank" class="regenthumbs-error-id" href="media.php?action=edit&attachment_id=' + id + '">' + id + '</a>... ' + ERRORTEXT + '</li>');
+					$("#log_regenthumb").append('<li><?php echo esc_js( __( 'Id : ', 'regenthumbs-stamina' ))?><a title="<?php echo esc_js( __( 'Edit the media', 'regenthumbs-stamina' ))?>" target="_blank" class="regenthumbs-error-id" href="media.php?action=edit&attachment_id=' + id + '">' + id + '</a>... ' + ERRORTEXT + '</li>');
 				}
 				rt_percent = Math.round(( rt_count / rt_total ) * 1000)/10;
 				$("#regenthumbsbar").progressbar( "value", rt_percent );
@@ -135,8 +142,9 @@ class RegenerateThumbnails {
 			}
 			// When the process is finished, shows end messages and proproses to
 			// relaunch on errors
-			function UpdateMessage() {
-				var finishedMessage = '<?php echo esc_js( sprintf( __( 'All done! Processed %d images. ', 'regenthumbs-stamina' ), $count ) ); ?>';
+			function FinishProcess() {
+				$('#regenthumbs-stamina-stop').css('display', 'none');
+				var finishedMessage = '<?php echo esc_js( __( 'All done! Number of images processed : ', 'regenthumbs-stamina' )) ?>' + (rt_success + rt_errors) + '. ';
 				var $errors = $("#log_regenthumb .regenthumbs-error-id");
 				if ($errors.length) {
 					var media_ids;
@@ -150,10 +158,14 @@ class RegenerateThumbnails {
 					});
 					finishedMessage = finishedMessage + '<?php echo esc_js( __( 'There are some errors. ', 'regenthumbs-stamina' ) ); ?>' + '<a href="tools.php?page=regenthumbs-stamina&amp;media_ids=' + media_ids + '" ><?php echo esc_js( __( 'Relaunch RegenThumbs Stamina on these specific medias. ', 'regenthumbs-stamina' ) ); ?></a>' ;
 				}
+				else {
+					finishedMessage = finishedMessage + '<?php echo esc_js( __( 'No errors (not even a tiny little one, how wonderful) ! ', 'regenthumbs-stamina' ) ); ?>';
+				}
 				$("#message").html("<p><strong>" + finishedMessage + "</strong></p>");
 				$("#message").show();
 			}
 
+			// Regenerate thumbnails for a specific media id
 			function RegenThumbs( id ) {
 				$.ajax({
 					type: 'POST',
@@ -162,21 +174,21 @@ class RegenerateThumbnails {
 					success: function() 
 					{
 						UpdateRegenInfos(id, "true");
-						if ( rt_images.length ) {
+						if ( rt_images.length && rt_continue ) {
 							RegenThumbs( rt_images.shift() );
 						} 
 						else {
-							UpdateMessage();
+							FinishProcess();
 						}
 					},
 					error:function ()
 					{
 						UpdateRegenInfos(id, "false");
-						if ( rt_images.length ) {
+						if ( rt_images.length && rt_continue ) {
 							RegenThumbs( rt_images.shift() );
 						} 
 						else {
-							UpdateMessage();
+							FinishProcess();
 						}
 					}
 				});
@@ -237,19 +249,13 @@ class RegenerateThumbnails {
 	function ajax_process_image() {
 		if ( !current_user_can( 'manage_options' ) )
 			die('-1');
-
 		$id = (int) $_REQUEST['id'];
-
 		if ( empty($id) )
 			die('-1');
-
 		$fullsizepath = get_attached_file( $id );
-
 		if ( false === $fullsizepath || !file_exists($fullsizepath) )
 			die('-1');
-
 		set_time_limit( 60 );
-
 		if ( wp_update_attachment_metadata( $id, wp_generate_attachment_metadata( $id, $fullsizepath ) ) )
 			die('1');
 		else
