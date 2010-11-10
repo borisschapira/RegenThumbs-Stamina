@@ -47,6 +47,7 @@ Visit Tools -> RegenThumbs Stamina to get started.
 
 #ChangeLog
 
+* 0.6 : When the process is finished, proposes to relaunch on errors
 * 0.5 : Actualize jQuery UI JS and CSS for a better look :)
 * 0.4 : Custom column in Wordpress Media Library for "one-click" (actualy, two clicks) regeneration
 * 0.3 : Comma-separated Media Ids regeneration feature

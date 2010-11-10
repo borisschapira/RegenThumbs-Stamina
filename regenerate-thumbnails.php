@@ -1,9 +1,30 @@
-<?php /***************************************************************************Plugin Name:  RegenThumbs StaminaPlugin URI:   Description:  Allows you to regenerate all thumbnails after changing the thumbnail sizes.Version:      0.5Author:       Boris SchapiraAuthor URI:   http://www.borisschapira.com**************************************************************************
+<?php
+/***************************************************************************
+Plugin Name:  RegenThumbs Stamina
+Plugin URI:   
+Description:  Allows you to regenerate all thumbnails after changing the thumbnail sizes.
+Version:      0.6
+Author:       Boris Schapira
+Author URI:   http://www.borisschapira.com
+**************************************************************************
 This program is free software: you can redistribute it and/or modifyit under the terms of the GNU General Public License as published bythe Free Software Foundation, either version 3 of the License, or(at your option) any later version.
 This program is distributed in the hope that it will be useful,but WITHOUT ANY WARRANTY; without even the implied warranty ofMERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See theGNU General Public License for more details.
 You should have received a copy of the GNU General Public Licensealong with this program.  If not, see <http://www.gnu.org/licenses/>.**************************************************************************/
-class RegenerateThumbnails {	// Plugin initialization	function RegenerateThumbnails() {		if ( !function_exists('admin_url') )			return false;		// Load up the localization file if we're using WordPress in a different language		// Place it in this plugin's "localization" folder and name it "regenthumbs-stamina-[value in wp-config].mo"		load_plugin_textdomain( 'regenthumbs-stamina', false, '/regenthumbs-stamina/localization' );
-		add_action( 'admin_menu', array(&$this, 'add_admin_menu') );		add_action( 'admin_enqueue_scripts', array(&$this, 'admin_enqueues') );		add_action( 'wp_ajax_regeneratethumbnail', array(&$this, 'ajax_process_image') );	}	// Register the management page	function add_admin_menu() {
+class RegenerateThumbnails {
+	// Plugin initialization
+	function RegenerateThumbnails() {
+	if ( !function_exists('admin_url') )
+			return false;
+		// Load up the localization file if we're using WordPress in a different language
+		// Place it in this plugin's "localization" folder and name it "regenthumbs-stamina-[value in wp-config].mo"
+		load_plugin_textdomain( 'regenthumbs-stamina', false, '/regenthumbs-stamina/localization' );
+		add_action( 'admin_menu', array(&$this, 'add_admin_menu') );
+		add_action( 'admin_enqueue_scripts', array(&$this, 'admin_enqueues') );
+		add_action( 'wp_ajax_regeneratethumbnail', array(&$this, 'ajax_process_image') );
+	}
+
+	// Register the management page
+	function add_admin_menu() {
 		add_management_page( __( 'RegenThumbs Stamina', 'regenthumbs-stamina' ), __( 'RegenThumbs Stamina', 'regenthumbs-stamina' ), 'manage_options', 'regenthumbs-stamina', array(&$this, 'regenerate_interface') );
 	}
 
@@ -60,7 +81,6 @@ class RegenerateThumbnails {	// Plugin initialization	function RegenerateThumb
 				foreach ( $images as $image )
 					$ids[] = $image->ID;
 				$ids = implode( ',', $ids );
-
 				$count = count( $images );
 ?>
 	<noscript><p><em><?php _e( 'You must enable Javascript in order to proceed!', 'regenthumbs-stamina' ) ?></em></p></noscript>
@@ -73,7 +93,6 @@ class RegenerateThumbnails {	// Plugin initialization	function RegenerateThumb
 	</div>
 	<div id="regenthumbslog">
 	<h3><?php _e( 'Full log', 'regenthumbs-stamina' )?> </h3>
-	<div id="regenthumbs-stamina-mediaEditPath" style="display:none"><?php echo admin_url('media.php'); ?></div>
 	<p>
 	<ul id="log_regenthumb"></ul>
 	</p>
@@ -88,13 +107,24 @@ class RegenerateThumbnails {	// Plugin initialization	function RegenerateThumb
 			var rt_success = 0;
 			var rt_errors = 0;
 			var rt_percent = 0;
-
 			$("#regenthumbsbar").progressbar();
 			$("#regenthumbsbar-percent").html( "0%" );
 			$("#imagecount").html(rt_total);
 			$("#successratevalue").html("100");
 			
-			function UpdateRegenInfos(id, completeStatus) {
+			// Updates log info
+			function UpdateRegenInfos(id, success) {
+				var SUCCESSTEXT = "<?php _e( 'Success !', 'regenthumbs-stamina' )?>";
+				var ERRORTEXT = "<?php _e( 'Error :(', 'regenthumbs-stamina' )?>";
+				
+				if(success){
+					rt_success = rt_success + 1;
+					$("#log_regenthumb").append('<li><?php _e( 'Id : ', 'regenthumbs-stamina' )?><a title="<?php _e( 'Edit the media', 'regenthumbs-stamina' )?>" target="_blank" class="regenthumbs-success-id" href="media.php?action=edit&attachment_id=' + id + '">' + id + '</a>... ' + SUCCESSTEXT + '</li>');
+				}
+				else{
+					rt_errors = rt_errors + 1;
+					$("#log_regenthumb").append('<li><?php _e( 'Id : ', 'regenthumbs-stamina' )?><a title="<?php _e( 'Edit the media', 'regenthumbs-stamina' )?>" target="_blank" class="regenthumbs-error-id" href="media.php?action=edit&attachment_id=' + id + '">' + id + '</a>... ' + ERRORTEXT + '</li>');
+				}
 				rt_percent = Math.round(( rt_count / rt_total ) * 1000)/10;
 				$("#regenthumbsbar").progressbar( "value", rt_percent );
 				$("#regenthumbsbar-percent").html( rt_percent + "%");
@@ -102,7 +132,26 @@ class RegenerateThumbnails {	// Plugin initialization	function RegenerateThumb
 					$("#successratevalue").html(Math.round((rt_success / (rt_errors + rt_success)) * 1000)/10);
 				}
 				rt_count = rt_count + 1;
-				$("#log_regenthumb").append('<li><?php _e( 'Id : ', 'regenthumbs-stamina' )?><a title="<?php _e( 'Edit the media', 'regenthumbs-stamina' )?>" target="_blank" href="' + $("#regenthumbs-stamina-mediaEditPath").html() + '?action=edit&attachment_id=' + id + '">' + id + '</a>... ' + completeStatus + '</li>');
+			}
+			// When the process is finished, shows end messages and proproses to
+			// relaunch on errors
+			function UpdateMessage() {
+				var finishedMessage = '<?php echo esc_js( sprintf( __( 'All done! Processed %d images. ', 'regenthumbs-stamina' ), $count ) ); ?>';
+				var $errors = $("#log_regenthumb .regenthumbs-error-id");
+				if ($errors.length) {
+					var media_ids;
+					$errors.each(function(index) {
+						if(index) {
+							media_ids = media_ids + ',' + $(this).text();
+						}
+						else {
+							media_ids = $(this).text();
+						}
+					});
+					finishedMessage = finishedMessage + '<?php echo esc_js( __( 'There are some errors. ', 'regenthumbs-stamina' ) ); ?>' + '<a href="tools.php?page=regenthumbs-stamina&amp;media_ids=' + media_ids + '" ><?php echo esc_js( __( 'Relaunch RegenThumbs Stamina on these specific medias. ', 'regenthumbs-stamina' ) ); ?></a>' ;
+				}
+				$("#message").html("<p><strong>" + finishedMessage + "</strong></p>");
+				$("#message").show();
 			}
 
 			function RegenThumbs( id ) {
@@ -112,26 +161,22 @@ class RegenerateThumbnails {	// Plugin initialization	function RegenerateThumb
 					data: { action: "regeneratethumbnail", id: id },
 					success: function() 
 					{
-						rt_success = rt_success + 1;
-						UpdateRegenInfos(id, "<?php _e( 'Success !', 'regenthumbs-stamina' )?>");
+						UpdateRegenInfos(id, "true");
 						if ( rt_images.length ) {
 							RegenThumbs( rt_images.shift() );
 						} 
 						else {
-							$("#message").html("<p><strong><?php echo esc_js( sprintf( __( 'All done! Processed %d images.', 'regenthumbs-stamina' ), $count ) ); ?></strong></p>");
-							$("#message").show();
+							UpdateMessage();
 						}
 					},
 					error:function ()
 					{
-						rt_errors = rt_errors + 1;
-						UpdateRegenInfos(id, "<?php _e( 'Error :(', 'regenthumbs-stamina' )?>");
+						UpdateRegenInfos(id, "false");
 						if ( rt_images.length ) {
 							RegenThumbs( rt_images.shift() );
 						} 
 						else {
-							$("#message").html("<p><strong><?php echo esc_js( sprintf( __( 'All done! Processed %d images.', 'regenthumbs-stamina' ), $count ) ); ?></strong></p>");
-							$("#message").show();
+							UpdateMessage();
 						}
 					}
 				});
@@ -187,7 +232,8 @@ class RegenerateThumbnails {	// Plugin initialization	function RegenerateThumb
 </div>
 <?php
 	}
-	// Process a single image ID (this is an AJAX handler)
+
+	// Process a single image ID (this is an AJAX handler)
 	function ajax_process_image() {
 		if ( !current_user_can( 'manage_options' ) )
 			die('-1');
